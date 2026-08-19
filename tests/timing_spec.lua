@@ -19,7 +19,7 @@ assert(historical); equal(gap, 5)
 
 -- Crossing start/finish continues monotonically thanks to lapCount.
 local wrap = Timing.new()
-local before = wrap:update(0, 0, 5, 0.99, false)
+local before = wrap:update(0, 0, 5, 0.99, false).progress
 local after = wrap:update(0, 1, 6, 0.01, false)
 assert(after.progress > before.progress, 'spline wrap must not move race progress backwards')
 
