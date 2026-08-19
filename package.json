@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "check:lua": "node tools/check-lua-syntax.js"
+  },
+  "devDependencies": {
+    "luaparse": "^0.3.1"
+  }
+}

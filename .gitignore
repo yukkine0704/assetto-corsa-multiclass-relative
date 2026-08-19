@@ -1,3 +1,4 @@
 dist/
 *.zip
+node_modules/
 .luacheckrc.local
