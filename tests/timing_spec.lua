@@ -21,7 +21,7 @@ assert(historical); equal(gap, 5)
 local wrap = Timing.new()
 local before = wrap:update(0, 0, 5, 0.99, false).progress
 local after = wrap:update(0, 1, 6, 0.01, false)
-assert(after.progress > before.progress, 'spline wrap must not move race progress backwards')
+assert(after.progress > before, 'spline wrap must not move race progress backwards')
 
 -- A sudden backwards move on the same lap invalidates history.
 local _, teleported = wrap:update(0, 2, 6, 0.30, false)
