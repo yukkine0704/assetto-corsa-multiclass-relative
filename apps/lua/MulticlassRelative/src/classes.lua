@@ -7,6 +7,17 @@ Classes.colors = {
   CUP = rgb(0.92, 0.92, 0.92), UNKNOWN = rgb(0.58, 0.60, 0.64)
 }
 
+-- Deliberately conservative default hierarchy for traffic warnings. UNKNOWN
+-- never qualifies as faster, avoiding false preparation prompts.
+Classes.speedRank = {
+  HY = 100, LMP1 = 95, LMP2 = 80, LMP3 = 70, GTE = 60, GT3 = 60,
+  GT4 = 45, CUP = 42, TCR = 35, TC = 35, UNKNOWN = 0
+}
+
+function Classes.isFaster(classA, classB)
+  return (Classes.speedRank[classA] or 0) > (Classes.speedRank[classB] or 0)
+end
+
 local known = {
   { 'hypercar', 'HY' }, { 'lmdh', 'HY' }, { 'lmh', 'HY' }, { 'lmp1', 'LMP1' },
   { 'lmp2', 'LMP2' }, { 'lmp3', 'LMP3' }, { 'gt3', 'GT3' }, { 'gt4', 'GT4' },

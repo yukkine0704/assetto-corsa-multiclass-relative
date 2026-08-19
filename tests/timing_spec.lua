@@ -1,5 +1,6 @@
 package.path = './apps/lua/MulticlassRelative/?.lua;./apps/lua/MulticlassRelative/?/init.lua;' .. package.path
 local Timing = require('src/timing')
+local Relative = require('src/relative')
 
 local function equal(actual, expected, epsilon)
   assert(math.abs(actual - expected) <= (epsilon or 0.001), ('expected %.3f, got %.3f'):format(expected, actual))
@@ -28,5 +29,18 @@ local _, teleported = wrap:update(0, 2, 6, 0.30, false)
 assert(not teleported)
 _, teleported = wrap:update(0, 3, 6, 0.01, true)
 assert(teleported, 'pit teleport must invalidate stale crossings')
+
+-- Filtered gaps persist independently from the freshly collected row table.
+local gap = 3
+local fakeTiming = { relativeGap = function() return gap, true end }
+local settings = { mode = 0, showPits = true, smoothing = 0.4, ahead = 1, behind = 1 }
+local memory = {}
+local grid = { { index = 0, progress = 4.50 }, { index = 1, progress = 4.49 } }
+local _, behind = Relative.build(grid, grid[1], fakeTiming, 1, settings, 1, memory)
+equal(behind[1].filteredGap, 3)
+gap = 2
+grid = { { index = 0, progress = 4.50 }, { index = 1, progress = 4.49 } }
+_, behind = Relative.build(grid, grid[1], fakeTiming, 2, settings, 1, memory)
+assert(behind[1].filteredGap < 3 and behind[1].filteredGap > 2, 'gap filter must survive telemetry snapshots')
 
 print('timing_spec: ok')

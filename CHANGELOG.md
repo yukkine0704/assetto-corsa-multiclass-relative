@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] - 2026-08-19
+
+### Added
+
+- Persistent per-class colour pickers and custom transparent background colour.
+- Faster-class closing warning with configurable range, threshold, and warning colour.
+
+### Fixed
+
+- Persist gap smoothing between incoming telemetry snapshots.
+
 ## [0.1.0] - 2026-08-19
 
 ### Added

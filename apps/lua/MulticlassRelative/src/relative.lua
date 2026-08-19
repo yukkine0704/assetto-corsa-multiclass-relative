@@ -2,7 +2,8 @@ local Relative = {}
 
 local function clamp(v, a, b) return math.max(a, math.min(b, v)) end
 
-function Relative.build(cars, player, timing, now, settings, dt)
+function Relative.build(cars, player, timing, now, settings, dt, memory)
+  memory = memory or {}
   local ahead, behind = {}, {}
   for _, row in ipairs(cars) do
     if row.index ~= player.index and (settings.mode ~= 1 or row.classID == player.classID) then
@@ -11,13 +12,15 @@ function Relative.build(cars, player, timing, now, settings, dt)
         row.progressDelta = delta
         local raw = timing:relativeGap(player.index, row.index, now)
         row.rawGap = raw
+        local previous = memory[row.index] or {}
         if raw and math.abs(delta) < 0.98 then
           local alpha = 1 - math.exp(-dt / math.max(0.05, settings.smoothing))
-          if not row.filteredGap or row.filteredGap * raw < 0 then row.filteredGap = raw
-          else row.filteredGap = row.filteredGap + (raw - row.filteredGap) * alpha end
+          if not previous.filteredGap or previous.filteredGap * raw < 0 then row.filteredGap = raw
+          else row.filteredGap = previous.filteredGap + (raw - previous.filteredGap) * alpha end
         else
           row.filteredGap = nil
         end
+        memory[row.index] = { filteredGap = row.filteredGap, lastSeen = now }
         if delta > 0 then table.insert(ahead, row) else table.insert(behind, row) end
       end
     end
@@ -28,6 +31,12 @@ function Relative.build(cars, player, timing, now, settings, dt)
   for i = math.min(#ahead, settings.ahead), 1, -1 do table.insert(selectedAhead, ahead[i]) end
   for i = 1, math.min(#behind, settings.behind) do table.insert(selectedBehind, behind[i]) end
   return selectedAhead, selectedBehind
+end
+
+function Relative.pruneMemory(memory, now)
+  for index, entry in pairs(memory) do
+    if entry.lastSeen < now - 5 then memory[index] = nil end
+  end
 end
 
 function Relative.lapText(row, player)

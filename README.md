@@ -13,6 +13,7 @@ It is designed for endurance traffic: the rows nearest the player are selected b
 - Overall and independently calculated class positions, car number, driver, class badge, pit marker, and lap differences.
 - All-cars and same-class modes; offline/online-aware inactive/disconnected car filtering.
 - Persistent CSP settings and in-app per-car class override cycling.
+- Per-class colour pickers, custom background colour/opacity, and a `FAST` closing-traffic highlight.
 - Editable exact class map in `classes.ini`; safe `UNKNOWN` fallback.
 - Optional compact debug telemetry view.
 
@@ -37,7 +38,7 @@ The app is intentionally self-rendered with CSP Lua UI. A representative layout 
 
 ## Installation
 
-1. Download `MulticlassRelative-v0.1.0.zip` from the release assets.
+1. Download `MulticlassRelative-v0.1.1.zip` from the release assets.
 2. Drag the ZIP into Content Manager and accept installation.
 3. Enable **Multiclass Relative** in the in-game CSP app sidebar.
 4. Open its settings through the app’s gear icon.
@@ -78,6 +79,8 @@ The key is the Assetto Corsa car folder ID, visible in Content Manager’s car p
 ## Settings
 
 Cars ahead/behind, mode, columns, pit display, title/header, decimal precision, maximum gap, smoothing, automatic detection, and debug mode persist via `ac.storage`. CSP stores that state under its per-app Lua state folder.
+
+The **Appearance** section includes a persistent background colour and opacity, plus an independent picker for every class badge/text colour. **Faster-class approach warning** highlights a row in a configurable warning colour and appends `FAST` when a car is behind, is in a class faster than the player's, is within the configured time range, and its filtered relative gap is reducing faster than the selected rate. Defaults are 8.0 s and 0.20 seconds of gap closed per second. It is deliberately not a flashing alert.
 
 ## Timing algorithm
 
