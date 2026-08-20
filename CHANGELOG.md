@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] - 2026-08-20
+
+### Added
+
+- Persistent relative font-size setting (12–32 px), with row height and driver truncation adapting to the chosen size.
+
 ## [0.1.2] - 2026-08-20
 
 ### Fixed

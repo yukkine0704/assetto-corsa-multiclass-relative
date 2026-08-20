@@ -5,7 +5,7 @@ local Classes = require('src/classes')
 local settings = ac.storage({
   ahead = 3, behind = 3, mode = 0, showOverall = true, showClassPosition = true,
   showNumber = true, showPits = true, showHeader = true, showTitle = false,
-  decimals = 1, maximumGap = 30, smoothing = 0.40, uiScale = 1.0,
+  decimals = 1, maximumGap = 30, smoothing = 0.40, uiScale = 1.0, fontSize = 18,
   automaticClasses = true, debug = false,
   backgroundColor = rgb(0.025, 0.030, 0.045), backgroundOpacity = 0.72,
   showApproaching = true, approachRange = 8.0, approachRate = 0.20,
@@ -31,6 +31,10 @@ end
 
 local function classColor(classID)
   return settings['classColor' .. classID] or Classes.colors[classID] or Classes.colors.UNKNOWN
+end
+
+local function relativeRowHeight()
+  return math.max(22, math.floor(settings.fontSize * 1.45))
 end
 
 local function updateApproachAlerts(now, dt)
@@ -124,20 +128,20 @@ local function rowText(row, isPlayer)
   local num = settings.showNumber and (' #' .. (row.number or '?')) or ''
   local pit = settings.showPits and row.inPitlane and ' PIT' or ''
   local warning = row.approaching and '  FAST' or ''
-  local who = isPlayer and 'YOU' or shorten(row.driver, 20)
+  local maxNameLength = math.max(7, math.floor(22 * 16 / settings.fontSize))
+  local who = isPlayer and 'YOU' or shorten(row.driver, maxNameLength)
   return string.format('%s %s %-5s%-5s %-20s %6s%s%s', ovr, cls, row.classID, num, who, isPlayer and ' 0.0' or gapText(row), pit, warning)
 end
 
 local function drawRow(row, isPlayer)
   local color = classColor(row.classID)
-  local start, finish = vec2(0, ui.getCursorY()), vec2(ui.windowWidth(), ui.getCursorY() + 22 * settings.uiScale)
+  local height = relativeRowHeight()
+  local start, finish = vec2(0, ui.getCursorY()), vec2(ui.windowWidth(), ui.getCursorY() + height)
   if isPlayer then ui.drawRectFilled(start, finish, rgbm(0.92, 0.92, 0.96, 0.20))
   elseif row.approaching then ui.drawRectFilled(start, finish, rgbm(settings.approachColor.r, settings.approachColor.g, settings.approachColor.b, 0.34))
   elseif row.filteredGap and math.abs(row.filteredGap) < 0.5 then ui.drawRectFilled(start, finish, rgbm(color.r, color.g, color.b, 0.16)) end
-  ui.setCursorY(ui.getCursorY() + 3 * settings.uiScale)
-  ui.pushStyleColor(ui.StyleColor.Text, isPlayer and rgb(1, 1, 1) or color)
-  ui.text((isPlayer and '> ' or '  ') .. rowText(row, isPlayer))
-  ui.popStyleColor()
+  ui.setCursorY(start.y + math.max(1, (height - settings.fontSize) / 2))
+  ui.dwriteText((isPlayer and '> ' or '  ') .. rowText(row, isPlayer), settings.fontSize, isPlayer and rgb(1, 1, 1) or color)
   ui.setCursorY(finish.y)
 end
 
@@ -146,8 +150,8 @@ function script.windowMain(dt)
   updateTelemetry(dt)
   if not player then ui.text('Waiting for race telemetry…'); return end
   ui.drawRectFilled(vec2(), ui.windowSize(), rgbm(settings.backgroundColor.r, settings.backgroundColor.g, settings.backgroundColor.b, settings.backgroundOpacity))
-  if settings.showTitle then ui.text('MULTICLASS RELATIVE') end
-  if settings.showHeader then ui.text(' OVR CL  CLASS #    DRIVER                   GAP') end
+  if settings.showTitle then ui.dwriteText('MULTICLASS RELATIVE', math.ceil(settings.fontSize * 1.15)) end
+  if settings.showHeader then ui.dwriteText(' OVR CL  CLASS #    DRIVER                   GAP', math.max(10, math.floor(settings.fontSize * 0.72)), rgb(0.72, 0.75, 0.80)) end
   for _, row in ipairs(shownAhead) do drawRow(row, false) end
   drawRow(player, true)
   for _, row in ipairs(shownBehind) do drawRow(row, false) end
@@ -172,6 +176,7 @@ function script.windowSettings()
   settings.maximumGap = ui.slider('Maximum gap', settings.maximumGap, 5, 90, 'Maximum gap: %.0fs')
   settings.smoothing = ui.slider('Gap smoothing', settings.smoothing, 0.05, 1.5, 'Gap smoothing: %.2fs')
   ui.separator(); ui.header('Appearance')
+  settings.fontSize = ui.slider('Relative font size', settings.fontSize, 12, 32, 'Relative font size: %.0f px')
   ui.text('Background color'); ui.sameLine(); ui.colorButton('##background', settings.backgroundColor, ui.ColorPickerFlags.PickerHueBar)
   settings.backgroundOpacity = ui.slider('Background opacity', settings.backgroundOpacity, 0, 1, 'Background opacity: %.0f%%')
   ui.text('Approach warning color'); ui.sameLine(); ui.colorButton('##approach', settings.approachColor, ui.ColorPickerFlags.PickerHueBar)
