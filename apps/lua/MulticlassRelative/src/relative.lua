@@ -2,15 +2,26 @@ local Relative = {}
 
 local function clamp(v, a, b) return math.max(a, math.min(b, v)) end
 
+local function circularSplineDelta(fromSpline, toSpline)
+  local delta = toSpline - fromSpline
+  if delta > 0.5 then return delta - 1 end
+  if delta < -0.5 then return delta + 1 end
+  return delta
+end
+
 function Relative.build(cars, player, timing, now, settings, dt, memory)
   memory = memory or {}
   local ahead, behind = {}, {}
   for _, row in ipairs(cars) do
     if row.index ~= player.index and (settings.mode ~= 1 or row.classID == player.classID) then
-      local delta = row.progress - player.progress
+      -- Race progress is for classification and lap markers. A relative needs
+      -- physical track proximity, so take the shortest direction around the
+      -- circuit from spline positions instead. This keeps a lapping car below
+      -- the player when it is physically approaching from behind.
+      local delta = circularSplineDelta(player.spline, row.spline)
       if math.abs(delta) > 0.0001 and (settings.showPits or not row.inPitlane) then
         row.progressDelta = delta
-        local raw = timing:relativeGap(player.index, row.index, now)
+        local raw = timing:relativeGap(player.index, row.index, now, delta)
         row.rawGap = raw
         local previous = memory[row.index] or {}
         if raw and math.abs(delta) < 0.98 then
@@ -32,6 +43,8 @@ function Relative.build(cars, player, timing, now, settings, dt, memory)
   for i = 1, math.min(#behind, settings.behind) do table.insert(selectedBehind, behind[i]) end
   return selectedAhead, selectedBehind
 end
+
+Relative.circularSplineDelta = circularSplineDelta
 
 function Relative.pruneMemory(memory, now)
   for index, entry in pairs(memory) do

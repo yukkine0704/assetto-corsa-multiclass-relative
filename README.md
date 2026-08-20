@@ -38,7 +38,7 @@ The app is intentionally self-rendered with CSP Lua UI. A representative layout 
 
 ## Installation
 
-1. Download `MulticlassRelative-v0.1.1.zip` from the release assets.
+1. Download `MulticlassRelative-v0.1.2.zip` from the release assets.
 2. Drag the ZIP into Content Manager and accept installation.
 3. Enable **Multiclass Relative** in the in-game CSP app sidebar.
 4. Open its settings through the app’s gear icon.
@@ -84,7 +84,7 @@ The **Appearance** section includes a persistent background colour and opacity, 
 
 ## Timing algorithm
 
-Every 0.1 s, each active car gets monotonic race progress `lapCount + splinePosition`. The app finds the nearest positive and negative progress deltas around the player and never sorts the relative by `racePosition`.
+Every 0.1 s, each active car gets monotonic race progress `lapCount + splinePosition`. The app uses the **shortest circular delta of `splinePosition`** to decide if a car is physically ahead or behind; it never uses `racePosition` or total race progress for that decision. This distinction is crucial for lapping: a car one lap ahead but physically approaching from behind is shown below the player.
 
 For a car ahead, it interpolates the time at which that car crossed the player’s current progress. For a car behind, it interpolates when the player crossed the trailing car’s current progress. Those crossings produce a time delta at the same point on the track, which remains useful through different speeds and classes. The short initial-history fallback uses average player progress rate and is replaced as soon as a crossing exists. A 0.40 s exponential filter smooths displayed gaps without changing row order.
 

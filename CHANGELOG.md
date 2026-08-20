@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-08-20
+
+### Fixed
+
+- Sort relative rows by circular spline proximity rather than total race progress, so lapping traffic approaching from behind appears below the player.
+
 ## [0.1.1] - 2026-08-19
 
 ### Added

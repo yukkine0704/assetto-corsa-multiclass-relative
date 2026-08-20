@@ -62,18 +62,25 @@ function Timing:estimateRate(index)
   return math.max(0, (b.p - a.p) / math.max(0.01, b.t - a.t))
 end
 
--- Returns a signed time: negative means the opponent is ahead, positive behind.
-function Timing:relativeGap(playerIndex, otherIndex, now)
+-- `physicalDelta` is the shortest signed circular spline distance. It must not
+-- be inferred from total race progress: a car one lap ahead can be physically
+-- behind the player while preparing to lap them.
+-- Returns a signed time: negative means physically ahead, positive behind.
+function Timing:relativeGap(playerIndex, otherIndex, now, physicalDelta)
   local player, other = self.cars[playerIndex], self.cars[otherIndex]
   if not player or not other then return nil, false end
-  local delta = other.progress - player.progress
+  local delta = physicalDelta or (other.progress - player.progress)
   if math.abs(delta) < 0.0001 then return 0, true end
   local crossing
   if delta > 0 then
-    crossing = self:crossingTime(otherIndex, player.progress)
+    -- Find when this car crossed the player’s *physical* current point, on
+    -- the correct local lap for the other car.
+    crossing = self:crossingTime(otherIndex, other.progress - delta)
     if crossing then return -(now - crossing), true end
   else
-    crossing = self:crossingTime(playerIndex, other.progress)
+    -- Likewise, find when the player crossed the trailing car’s physical
+    -- current point on the player’s own progress timeline.
+    crossing = self:crossingTime(playerIndex, player.progress + delta)
     if crossing then return now - crossing, true end
   end
   local rate = self:estimateRate(playerIndex)

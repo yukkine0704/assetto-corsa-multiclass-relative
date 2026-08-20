@@ -10,12 +10,12 @@ end
 local timing = Timing.new()
 timing:update(0, 0, 3, 0.00, false); timing:update(1, 0, 3, 0.01, false)
 timing:update(0, 10, 3, 0.10, false); timing:update(1, 10, 3, 0.11, false)
-local gap, historical = timing:relativeGap(0, 1, 10)
+local gap, historical = timing:relativeGap(0, 1, 10, 0.01)
 assert(historical); equal(gap, -1)
 
 -- A trailing car crosses the player’s earlier point five seconds later.
 timing:update(2, 0, 3, 0.00, false); timing:update(2, 10, 3, 0.05, false)
-gap, historical = timing:relativeGap(0, 2, 10)
+gap, historical = timing:relativeGap(0, 2, 10, -0.05)
 assert(historical); equal(gap, 5)
 
 -- Crossing start/finish continues monotonically thanks to lapCount.
@@ -35,12 +35,20 @@ local gap = 3
 local fakeTiming = { relativeGap = function() return gap, true end }
 local settings = { mode = 0, showPits = true, smoothing = 0.4, ahead = 1, behind = 1 }
 local memory = {}
-local grid = { { index = 0, progress = 4.50 }, { index = 1, progress = 4.49 } }
+local grid = { { index = 0, progress = 4.50, spline = 0.50 }, { index = 1, progress = 4.49, spline = 0.49 } }
 local _, behind = Relative.build(grid, grid[1], fakeTiming, 1, settings, 1, memory)
 equal(behind[1].filteredGap, 3)
 gap = 2
-grid = { { index = 0, progress = 4.50 }, { index = 1, progress = 4.49 } }
+grid = { { index = 0, progress = 4.50, spline = 0.50 }, { index = 1, progress = 4.49, spline = 0.49 } }
 _, behind = Relative.build(grid, grid[1], fakeTiming, 2, settings, 1, memory)
 assert(behind[1].filteredGap < 3 and behind[1].filteredGap > 2, 'gap filter must survive telemetry snapshots')
+
+-- Regression: an LMP2 on the next race lap but physically just behind a GT3
+-- must be below the player, never at the top like a leaderboard leader.
+local player = { index = 0, progress = 10.50, spline = 0.50 }
+local lappingCar = { index = 1, progress = 11.45, spline = 0.45 }
+local _, physicalBehind = Relative.build({ player, lappingCar }, player, fakeTiming, 3, settings, 1, {})
+assert(physicalBehind[1].index == 1, 'lapping car physically behind must appear below player')
+assert(Relative.circularSplineDelta(0.95, 0.05) > 0, 'spline wrap must preserve physical ahead direction')
 
 print('timing_spec: ok')
