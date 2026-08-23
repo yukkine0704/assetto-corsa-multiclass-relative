@@ -51,4 +51,12 @@ local _, physicalBehind = Relative.build({ player, lappingCar }, player, fakeTim
 assert(physicalBehind[1].index == 1, 'lapping car physically behind must appear below player')
 assert(Relative.circularSplineDelta(0.95, 0.05) > 0, 'spline wrap must preserve physical ahead direction')
 
+-- Class filtering remains active independently of presentation columns.
+settings.mode = 1
+local sameClass = { index = 1, progress = 4.49, spline = 0.49, classID = 'GT3' }
+local otherClass = { index = 2, progress = 4.48, spline = 0.48, classID = 'HY' }
+local classPlayer = { index = 0, progress = 4.50, spline = 0.50, classID = 'GT3' }
+_, physicalBehind = Relative.build({ classPlayer, sameClass, otherClass }, classPlayer, fakeTiming, 4, settings, 1, {})
+assert(#physicalBehind == 1 and physicalBehind[1].classID == 'GT3', 'same-class filtering must continue using detected class IDs')
+
 print('timing_spec: ok')

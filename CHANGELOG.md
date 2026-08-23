@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Independent visibility settings for overall position, class position/text, car number, driver, gap, pit indicator, and lap difference.
+- A configurable class-colour stripe that remains visible when class text is hidden.
+
+### Changed
+
+- The compact default relative now shows overall position, car number, driver name, and gap; class position and class text default to hidden.
+- Pit-car filtering and the visible `PIT` indicator are now controlled independently.
+
 ## [0.1.3] - 2026-08-20
 
 ### Added

@@ -15,6 +15,17 @@ jobs:
       - name: Validate Lua syntax
         run: find apps -name '*.lua' -print0 | xargs -0 -n1 luac -p
       - name: Run deterministic timing tests
-        run: lua tests/timing_spec.lua
+        run: |
+          lua tests/timing_spec.lua
+          lua tests/display_spec.lua
       - name: Verify package source
         run: test -f apps/lua/MulticlassRelative/manifest.ini
+      - name: Build Content Manager package
+        shell: pwsh
+        run: ./tools/build-package.ps1
+      - name: Upload installable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: MulticlassRelative-v0.1.3
+          path: dist/MulticlassRelative-v0.1.3.zip
+          if-no-files-found: error

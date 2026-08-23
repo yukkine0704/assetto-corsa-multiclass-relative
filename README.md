@@ -10,25 +10,29 @@ It is designed for endurance traffic: the rows nearest the player are selected b
 - Relative ordering from `lapCount + splinePosition`, including start/finish wrap.
 - History/interpolation-based time deltas instead of instantaneous distance ÷ speed.
 - Bounded 90-second history, responsive exponential gap smoothing, teleport invalidation.
-- Overall and independently calculated class positions, car number, driver, class badge, pit marker, and lap differences.
+- Independently configurable overall position, class position/text, car number, driver, gap, pit marker, and lap-difference fields.
 - All-cars and same-class modes; offline/online-aware inactive/disconnected car filtering.
 - Persistent CSP settings and in-app per-car class override cycling.
-- Per-class colour pickers, custom background colour/opacity, and a `FAST` closing-traffic highlight.
+- Persistent per-class colour pickers, a configurable class-colour stripe, custom background colour/opacity, and a `FAST` closing-traffic highlight.
 - Editable exact class map in `classes.ini`; safe `UNKNOWN` fallback.
 - Optional compact debug telemetry view.
 
 ## Screenshot
 
-The app is intentionally self-rendered with CSP Lua UI. A representative layout is:
+The app is intentionally self-rendered with CSP Lua UI. Its compact default layout uses overall race position and keeps class identity in a narrow coloured stripe at the left of every row:
 
 ```text
- OVR CL  CLASS #    DRIVER                   GAP
-  12  3 HY    #8     Driver A                -2.7
-  16  6 GT3   #27    Driver B                -0.4
-> 17  7 GT3   #12    YOU                      0.0
-   5  2 HY    #7     Driver C                +0.8
-  18  8 GT3   #91    Driver D                +2.4
+RELATIVE
+
+ POS   # DRIVER                 GAP
+ 15  42 Driver B               -1.8
+ 16  91 Driver C               -0.7
+>17  27 A piece of toast        0.0
+  5   8 Driver D               +0.9
+ 18  55 Driver E               +2.4
 ```
+
+The player row also has a bright background and `>` marker, so its identity does not depend on the player class colour.
 
 ## Requirements
 
@@ -49,9 +53,9 @@ Manual installation: extract the ZIP into the Assetto Corsa root. It contains ex
 
 `All cars` is the default and is recommended for traffic awareness. `Same class` filters the nearby physical traffic to the player’s detected class.
 
-Negative gaps identify cars ahead in race direction; positive gaps identify cars behind. For lap-separated traffic the app shows a lap marker instead of a misleading long time: `-1L` is one lap ahead of the player and `+1L` is one lap behind.
+Negative gaps identify cars ahead in race direction; positive gaps identify cars behind. For lap-separated traffic the optional lap-difference indicator appears beside the physical gap: `-1L` is one lap ahead of the player and `+1L` is one lap behind.
 
-Cars in pit lane remain visible by default and get `PIT`; disable **Show cars in pits** to filter them. Disconnected entries are excluded when CSP marks them disconnected, and stale timing states expire after five seconds.
+Cars in pit lane remain visible by default and get `PIT`. **Show pit indicator** controls that marker without filtering cars; **Show cars in pits** controls filtering independently. Disconnected entries are excluded when CSP marks them disconnected, and stale timing states expire after five seconds.
 
 ## Multiclass support
 
@@ -63,6 +67,8 @@ Assetto Corsa/CSP does not provide a standardized class property in the currentl
 4. `UNKNOWN`.
 
 Available built-ins are `HY`, `LMP1`, `LMP2`, `LMP3`, `GT3`, `GT4`, `GTE`, `TCR`, `TC`, `CUP`, and `UNKNOWN`. No unsupported server metadata is invented or presented as authoritative.
+
+Hiding class text or class position is presentation-only. Detection continues to drive class colours, class-position calculation, same-class filtering, multiclass behavior, and faster-class approach warnings.
 
 ### Custom class mappings
 
@@ -80,7 +86,9 @@ The key is the Assetto Corsa car folder ID, visible in Content Manager’s car p
 
 Cars ahead/behind, mode, columns, pit display, title/header, decimal precision, maximum gap, smoothing, automatic detection, and debug mode persist via `ac.storage`. CSP stores that state under its per-app Lua state folder.
 
-The **Appearance** section includes a persistent 12–32 px **Relative font size** control (18 px by default), a background colour/opacity, and an independent picker for every class badge/text colour. Row height and driver truncation adapt with the font size. **Faster-class approach warning** highlights a row in a configurable warning colour and appends `FAST` when a car is behind, is in a class faster than the player's, is within the configured time range, and its filtered relative gap is reducing faster than the selected rate. Defaults are 8.0 s and 0.20 seconds of gap closed per second. It is deliberately not a flashing alert.
+The default columns are **overall position**, **car number**, **driver name**, and **gap**. **Class position** and **class text** default to off; both remain available independently. Pit and lap-difference indicators default to on and appear only when applicable. Every field can be toggled separately in the **Columns** settings section.
+
+The **Appearance** section includes a persistent 12–32 px **Relative font size** control (18 px by default), a 2–8 px **Class marker width** control (4 px by default), a background colour/opacity, and an independent picker for every class colour. Row height and driver truncation adapt with the font size. **Faster-class approach warning** highlights a row in a configurable warning colour and appends `FAST` when a car is behind, is in a class faster than the player's, is within the configured time range, and its filtered relative gap is reducing faster than the selected rate. Defaults are 8.0 s and 0.20 seconds of gap closed per second. It is deliberately not a flashing alert.
 
 ## Timing algorithm
 

@@ -1,6 +1,6 @@
 # Test plan
 
-Automated deterministic coverage checks interpolated ahead/behind gaps, spline wrap at start/finish, and same-lap teleport history invalidation. Run `lua tests/timing_spec.lua` with Lua 5.1; CI performs the same checks and syntax validation.
+Automated deterministic coverage checks interpolated ahead/behind gaps, spline wrap at start/finish, same-lap teleport history invalidation, same-class filtering, and independent relative columns. Run `lua tests/timing_spec.lua` and `lua tests/display_spec.lua` with Lua 5.1; CI performs the same checks and syntax validation.
 
 Manual validation still required in Assetto Corsa:
 

@@ -1,10 +1,13 @@
 local Timing = require('src/timing')
 local Relative = require('src/relative')
 local Classes = require('src/classes')
+local Display = require('src/display')
 
 local settings = ac.storage({
-  ahead = 3, behind = 3, mode = 0, showOverall = true, showClassPosition = true,
-  showNumber = true, showPits = true, showHeader = true, showTitle = false,
+  ahead = 3, behind = 3, mode = 0, showOverall = true, showClassPosition = false,
+  showClassText = false, showNumber = true, showDriver = true, showGap = true,
+  showPitIndicator = true, showLapDifference = true, showPits = true,
+  showHeader = true, showTitle = true, classMarkerWidth = 4,
   decimals = 1, maximumGap = 30, smoothing = 0.40, uiScale = 1.0, fontSize = 18,
   automaticClasses = true, debug = false,
   backgroundColor = rgb(0.025, 0.030, 0.045), backgroundOpacity = 0.72,
@@ -35,6 +38,10 @@ end
 
 local function relativeRowHeight()
   return math.max(22, math.floor(settings.fontSize * 1.45))
+end
+
+local function classMarkerWidth()
+  return math.max(2, math.floor(settings.classMarkerWidth + 0.5))
 end
 
 local function updateApproachAlerts(now, dt)
@@ -103,6 +110,8 @@ local function updateTelemetry(dt)
   timing:prune(now)
   if player then
     table.sort(cars, function(a, b) return a.progress > b.progress end)
+    -- Keep class data live regardless of presentation settings: filtering,
+    -- positions, colours and approach warnings all depend on it.
     local positions = {}
     for _, row in ipairs(cars) do
       positions[row.classID] = (positions[row.classID] or 0) + 1
@@ -114,34 +123,19 @@ local function updateTelemetry(dt)
   end
 end
 
-local function gapText(row)
-  local lap = Relative.lapText(row, player)
-  if lap then return lap end
-  if not row.filteredGap then return '…' end
-  if math.abs(row.filteredGap) > settings.maximumGap then return '>' .. settings.maximumGap .. 's' end
-  return string.format('%+.' .. settings.decimals .. 'f', row.filteredGap)
-end
-
-local function rowText(row, isPlayer)
-  local ovr = settings.showOverall and string.format('%2d', row.overall) or ''
-  local cls = settings.showClassPosition and string.format('%2d', row.classPosition) or ''
-  local num = settings.showNumber and (' #' .. (row.number or '?')) or ''
-  local pit = settings.showPits and row.inPitlane and ' PIT' or ''
-  local warning = row.approaching and '  FAST' or ''
-  local maxNameLength = math.max(7, math.floor(22 * 16 / settings.fontSize))
-  local who = isPlayer and 'YOU' or shorten(row.driver, maxNameLength)
-  return string.format('%s %s %-5s%-5s %-20s %6s%s%s', ovr, cls, row.classID, num, who, isPlayer and ' 0.0' or gapText(row), pit, warning)
-end
-
 local function drawRow(row, isPlayer)
   local color = classColor(row.classID)
   local height = relativeRowHeight()
+  local markerWidth = classMarkerWidth()
   local start, finish = vec2(0, ui.getCursorY()), vec2(ui.windowWidth(), ui.getCursorY() + height)
   if isPlayer then ui.drawRectFilled(start, finish, rgbm(0.92, 0.92, 0.96, 0.20))
   elseif row.approaching then ui.drawRectFilled(start, finish, rgbm(settings.approachColor.r, settings.approachColor.g, settings.approachColor.b, 0.34))
   elseif row.filteredGap and math.abs(row.filteredGap) < 0.5 then ui.drawRectFilled(start, finish, rgbm(color.r, color.g, color.b, 0.16)) end
+  ui.drawRectFilled(start, vec2(start.x + markerWidth, finish.y), rgbm(color.r, color.g, color.b, 0.95))
+  ui.setCursorX(start.x + markerWidth + 4)
   ui.setCursorY(start.y + math.max(1, (height - settings.fontSize) / 2))
-  ui.dwriteText((isPlayer and '> ' or '  ') .. rowText(row, isPlayer), settings.fontSize, isPlayer and rgb(1, 1, 1) or color)
+  ui.dwriteText(Display.rowText(row, isPlayer, player, settings), settings.fontSize, isPlayer and rgb(1, 1, 1) or rgb(0.90, 0.92, 0.96))
+  ui.setCursorX(0)
   ui.setCursorY(finish.y)
 end
 
@@ -150,8 +144,12 @@ function script.windowMain(dt)
   updateTelemetry(dt)
   if not player then ui.text('Waiting for race telemetry…'); return end
   ui.drawRectFilled(vec2(), ui.windowSize(), rgbm(settings.backgroundColor.r, settings.backgroundColor.g, settings.backgroundColor.b, settings.backgroundOpacity))
-  if settings.showTitle then ui.dwriteText('MULTICLASS RELATIVE', math.ceil(settings.fontSize * 1.15)) end
-  if settings.showHeader then ui.dwriteText(' OVR CL  CLASS #    DRIVER                   GAP', math.max(10, math.floor(settings.fontSize * 0.72)), rgb(0.72, 0.75, 0.80)) end
+  if settings.showTitle then ui.dwriteText('RELATIVE', math.ceil(settings.fontSize * 1.15)) end
+  if settings.showHeader then
+    ui.setCursorX(classMarkerWidth() + 4)
+    ui.dwriteText(Display.headerText(settings), settings.fontSize, rgb(0.72, 0.75, 0.80))
+    ui.setCursorX(0)
+  end
   for _, row in ipairs(shownAhead) do drawRow(row, false) end
   drawRow(player, true)
   for _, row in ipairs(shownBehind) do drawRow(row, false) end
@@ -166,9 +164,16 @@ function script.windowSettings()
   settings.ahead = ui.slider('Cars ahead', settings.ahead, 1, 10, 'Cars ahead: %.0f')
   settings.behind = ui.slider('Cars behind', settings.behind, 1, 10, 'Cars behind: %.0f')
   settings.mode = ui.combo('Mode', settings.mode, ui.ComboFlags.None, { 'All cars', 'Same class' })
+  ui.separator(); ui.header('Columns')
   if ui.checkbox('Show overall position', settings.showOverall) then settings.showOverall = not settings.showOverall end
   if ui.checkbox('Show class position', settings.showClassPosition) then settings.showClassPosition = not settings.showClassPosition end
+  if ui.checkbox('Show class text', settings.showClassText) then settings.showClassText = not settings.showClassText end
   if ui.checkbox('Show car number', settings.showNumber) then settings.showNumber = not settings.showNumber end
+  if ui.checkbox('Show driver name', settings.showDriver) then settings.showDriver = not settings.showDriver end
+  if ui.checkbox('Show gap', settings.showGap) then settings.showGap = not settings.showGap end
+  if ui.checkbox('Show pit indicator', settings.showPitIndicator) then settings.showPitIndicator = not settings.showPitIndicator end
+  if ui.checkbox('Show lap difference', settings.showLapDifference) then settings.showLapDifference = not settings.showLapDifference end
+  ui.separator(); ui.header('Rows')
   if ui.checkbox('Show cars in pits', settings.showPits) then settings.showPits = not settings.showPits end
   if ui.checkbox('Show header', settings.showHeader) then settings.showHeader = not settings.showHeader end
   if ui.checkbox('Show title', settings.showTitle) then settings.showTitle = not settings.showTitle end
@@ -177,6 +182,7 @@ function script.windowSettings()
   settings.smoothing = ui.slider('Gap smoothing', settings.smoothing, 0.05, 1.5, 'Gap smoothing: %.2fs')
   ui.separator(); ui.header('Appearance')
   settings.fontSize = ui.slider('Relative font size', settings.fontSize, 12, 32, 'Relative font size: %.0f px')
+  settings.classMarkerWidth = ui.slider('Class marker width', settings.classMarkerWidth, 2, 8, 'Class marker width: %.0f px')
   ui.text('Background color'); ui.sameLine(); ui.colorButton('##background', settings.backgroundColor, ui.ColorPickerFlags.PickerHueBar)
   settings.backgroundOpacity = ui.slider('Background opacity', settings.backgroundOpacity, 0, 1, 'Background opacity: %.0f%%')
   ui.text('Approach warning color'); ui.sameLine(); ui.colorButton('##approach', settings.approachColor, ui.ColorPickerFlags.PickerHueBar)
