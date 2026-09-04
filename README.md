@@ -1,6 +1,6 @@
 # Multiclass Relative
 
-A modern multiclass relative timing app for Assetto Corsa powered by Custom Shaders Patch (CSP).
+A retro-industrial multiclass relative timing app for Assetto Corsa powered by Custom Shaders Patch (CSP).
 
 It is designed for endurance traffic: the rows nearest the player are selected by their **physical, lap-aware track progress**, not by the race leaderboard. A Hypercar in overall P2 that is lapping a GT3 can therefore correctly appear directly behind that GT3.
 
@@ -14,12 +14,13 @@ It is designed for endurance traffic: the rows nearest the player are selected b
 - All-cars and same-class modes; offline/online-aware inactive/disconnected car filtering.
 - Persistent CSP settings and in-app per-car class override cycling.
 - Persistent per-class colour pickers, a configurable class-colour stripe, custom background colour/opacity, and a `FAST` closing-traffic highlight.
+- Retro-engineering visual language: warm instrument palette, amber-on-graphite rows, and compact timing columns.
 - Editable exact class map in `classes.ini`; safe `UNKNOWN` fallback.
 - Optional compact debug telemetry view.
 
 ## Screenshot
 
-The app is intentionally self-rendered with CSP Lua UI. Its compact default layout uses overall race position and keeps class identity in a narrow coloured stripe at the left of every row:
+The app is intentionally self-rendered with CSP Lua UI. Its compact default layout uses a warm paper/amber-on-graphite treatment, with class identity in a narrow coloured stripe at the left of every row:
 
 ```text
 RELATIVE

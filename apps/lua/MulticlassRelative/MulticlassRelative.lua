@@ -1,7 +1,6 @@
 local Timing = require('src/timing')
 local Relative = require('src/relative')
 local Classes = require('src/classes')
-local Display = require('src/display')
 
 local settings = ac.storage({
   ahead = 3, behind = 3, mode = 0, showOverall = true, showClassPosition = false,
@@ -9,10 +8,10 @@ local settings = ac.storage({
   showPitIndicator = true, showLapDifference = true, showPits = true,
   showHeader = true, showTitle = true, classMarkerWidth = 4,
   decimals = 1, maximumGap = 30, smoothing = 0.40, uiScale = 1.0, fontSize = 18,
-  automaticClasses = true, debug = false,
-  backgroundColor = rgb(0.025, 0.030, 0.045), backgroundOpacity = 0.72,
-  showApproaching = true, approachRange = 8.0, approachRate = 0.20,
+  automaticClasses = true, debug = false, visualStyleVersion = 0,
+  backgroundColor = rgb(0.043, 0.035, 0.027), backgroundOpacity = 0.72,
   approachColor = rgb(1.00, 0.58, 0.12),
+  showApproaching = true, approachRange = 8.0, approachRate = 0.20,
   classColorHY = Classes.colors.HY:clone(), classColorLMP1 = Classes.colors.LMP1:clone(),
   classColorLMP2 = Classes.colors.LMP2:clone(), classColorLMP3 = Classes.colors.LMP3:clone(),
   classColorGT3 = Classes.colors.GT3:clone(), classColorGT4 = Classes.colors.GT4:clone(),
@@ -21,27 +20,126 @@ local settings = ac.storage({
   classColorUNKNOWN = Classes.colors.UNKNOWN:clone()
 })
 
+-- Move the old default navy backdrop to the shared warm instrument palette,
+-- while preserving a colour the user had already customized.
+if (settings.visualStyleVersion or 0) < 1 then
+  local color = settings.backgroundColor
+  if color and math.abs(color.r - 0.025) < 0.001
+      and math.abs(color.g - 0.030) < 0.001
+      and math.abs(color.b - 0.045) < 0.001 then
+    settings.backgroundColor = rgb(0.043, 0.035, 0.027)
+  end
+  settings.visualStyleVersion = 1
+end
+
 local timing = Timing.new()
 local cars, player, shownAhead, shownBehind = {}, nil, {}, {}
+local telemetryError
 local metadata, relativeMemory, approachMemory = {}, {}, {}
 local telemetryAccumulator, previousSession, previousPlayerLap = 0, nil, nil
 local classIDs = { 'HY', 'LMP1', 'LMP2', 'LMP3', 'GT3', 'GT4', 'GTE', 'TCR', 'TC', 'CUP', 'UNKNOWN' }
 
 local function shorten(value, count)
   value = value or 'Unknown driver'
-  return #value > count and value:sub(1, count - 1) .. '…' or value
+  return #value > count and value:sub(1, count - 1) .. '...' or value
 end
 
 local function classColor(classID)
   return settings['classColor' .. classID] or Classes.colors[classID] or Classes.colors.UNKNOWN
 end
 
-local function relativeRowHeight()
-  return math.max(22, math.floor(settings.fontSize * 1.45))
+local function driverWidth()
+  return math.max(8, math.floor(20 * 18 / settings.fontSize + 0.5))
 end
 
-local function classMarkerWidth()
-  return math.max(2, math.floor(settings.classMarkerWidth + 0.5))
+local function add(parts, enabled, value)
+  if enabled and value then table.insert(parts, value) end
+end
+
+local function gapText(row)
+  if not row.filteredGap then return '...' end
+  if math.abs(row.filteredGap) > settings.maximumGap then return '>' .. settings.maximumGap .. 's' end
+  return string.format('%+.' .. settings.decimals .. 'f', row.filteredGap)
+end
+
+local function rowText(row, isPlayer)
+  local width = driverWidth()
+  local parts = {}
+  add(parts, settings.showOverall, string.format('%2d', row.overall))
+  add(parts, settings.showClassPosition, string.format('%2d', row.classPosition))
+  add(parts, settings.showClassText, string.format('%-5s', row.classID or 'UNKNOWN'))
+  add(parts, settings.showNumber, string.format('%3s', tostring(row.number or '?')))
+  add(parts, settings.showDriver, string.format('%-' .. width .. 's', shorten(row.driver, width)))
+  add(parts, settings.showGap, string.format('%6s', isPlayer and string.format('%.' .. settings.decimals .. 'f', 0) or gapText(row)))
+  add(parts, settings.showPitIndicator and row.inPitlane, 'PIT')
+  add(parts, settings.showLapDifference, Relative.lapText(row, player))
+  add(parts, row.approaching, 'FAST')
+  return (isPlayer and '>' or ' ') .. table.concat(parts, ' ')
+end
+
+local function headerText()
+  local width = driverWidth()
+  local parts = {}
+  add(parts, settings.showOverall, string.format('%2s', 'POS'))
+  add(parts, settings.showClassPosition, string.format('%2s', 'P#'))
+  add(parts, settings.showClassText, string.format('%-5s', 'CLASS'))
+  add(parts, settings.showNumber, string.format('%3s', '#'))
+  add(parts, settings.showDriver, string.format('%-' .. width .. 's', 'DRIVER'))
+  add(parts, settings.showGap, string.format('%6s', 'GAP'))
+  return ' ' .. table.concat(parts, ' ')
+end
+
+local function drawRow(row, isPlayer)
+  local color = classColor(row.classID)
+  local height = math.max(22, math.floor(settings.fontSize * 1.45))
+  local markerWidth = math.max(2, math.floor(settings.classMarkerWidth + 0.5))
+  local start = vec2(8, ui.getCursorY())
+  local finish = vec2(ui.windowWidth() - 8, start.y + height)
+
+  ui.drawRectFilled(start, finish, rgbm(0.05, 0.04, 0.03, 0.92))
+  if isPlayer then
+    ui.drawRectFilled(start, finish, rgbm(0.36, 0.24, 0.08, 0.78))
+  elseif row.approaching then
+    ui.drawRectFilled(start, finish, rgbm(settings.approachColor.r, settings.approachColor.g, settings.approachColor.b, 0.34))
+  elseif row.filteredGap and math.abs(row.filteredGap) < 0.5 then
+    ui.drawRectFilled(start, finish, rgbm(color.r, color.g, color.b, 0.16))
+  end
+
+  ui.drawRectFilled(start, vec2(start.x + markerWidth, finish.y), rgbm(color.r, color.g, color.b, 0.95))
+  ui.setCursorX(start.x + markerWidth + 7)
+  ui.setCursorY(start.y + math.max(1, (height - settings.fontSize) / 2))
+  ui.dwriteText(rowText(row, isPlayer), settings.fontSize, isPlayer and rgb(1, 0.91, 0.70) or rgb(0.95, 0.86, 0.67))
+  ui.setCursorX(8)
+  ui.setCursorY(finish.y + 2)
+end
+
+local function drawMain()
+  local background = settings.backgroundColor or rgb(0.043, 0.035, 0.027)
+  ui.drawRectFilled(vec2(), ui.windowSize(), rgbm(background.r, background.g, background.b, settings.backgroundOpacity or 0.72))
+
+  ui.setCursorX(8)
+  ui.setCursorY(18)
+  if telemetryError then
+    ui.dwriteText('TELEMETRY ERROR', settings.fontSize, rgb(1, 0.35, 0.28))
+    ui.text(telemetryError)
+    return
+  end
+
+  if not player then
+    ui.dwriteText('WAITING FOR TELEMETRY', settings.fontSize, rgb(1, 0.87, 0.60))
+    ui.text('Race data is not available yet.')
+    return
+  end
+
+  if settings.showHeader then
+    ui.setCursorX(8)
+    ui.dwriteText(headerText(), settings.fontSize, rgb(0.65, 0.51, 0.32))
+  end
+  ui.setCursorX(8)
+  ui.setCursorY(math.max(40, ui.getCursorY() + 4))
+  for _, row in ipairs(shownAhead) do drawRow(row, false) end
+  drawRow(player, true)
+  for _, row in ipairs(shownBehind) do drawRow(row, false) end
 end
 
 local function updateApproachAlerts(now, dt)
@@ -70,13 +168,21 @@ local function metadataFor(car)
   if cached and cached.id == id then return cached end
   local name = car:name()
   local classID, source = Classes.detect(id, name, settings.automaticClasses)
-  cached = { id = id, name = name, driver = car:driverName(), number = car:driverNumber(), classID = classID, classSource = source }
+  cached = {
+    id = id,
+    name = name,
+    driver = car:driverName(),
+    number = car:driverNumber(),
+    classID = classID,
+    classSource = source
+  }
   metadata[car.index] = cached
   ac.log('[MulticlassRelative] ' .. id .. ' -> ' .. classID .. ' (' .. source:lower() .. ')')
   return cached
 end
 
 local function updateTelemetry(dt)
+  dt = dt or 0
   telemetryAccumulator = telemetryAccumulator + dt
   if telemetryAccumulator < 0.10 then return end
   local interval = telemetryAccumulator
@@ -123,40 +229,26 @@ local function updateTelemetry(dt)
   end
 end
 
-local function drawRow(row, isPlayer)
-  local color = classColor(row.classID)
-  local height = relativeRowHeight()
-  local markerWidth = classMarkerWidth()
-  local start, finish = vec2(0, ui.getCursorY()), vec2(ui.windowWidth(), ui.getCursorY() + height)
-  if isPlayer then ui.drawRectFilled(start, finish, rgbm(0.92, 0.92, 0.96, 0.20))
-  elseif row.approaching then ui.drawRectFilled(start, finish, rgbm(settings.approachColor.r, settings.approachColor.g, settings.approachColor.b, 0.34))
-  elseif row.filteredGap and math.abs(row.filteredGap) < 0.5 then ui.drawRectFilled(start, finish, rgbm(color.r, color.g, color.b, 0.16)) end
-  ui.drawRectFilled(start, vec2(start.x + markerWidth, finish.y), rgbm(color.r, color.g, color.b, 0.95))
-  ui.setCursorX(start.x + markerWidth + 4)
-  ui.setCursorY(start.y + math.max(1, (height - settings.fontSize) / 2))
-  ui.dwriteText(Display.rowText(row, isPlayer, player, settings), settings.fontSize, isPlayer and rgb(1, 1, 1) or rgb(0.90, 0.92, 0.96))
-  ui.setCursorX(0)
-  ui.setCursorY(finish.y)
+function script.update(dt)
+  if telemetryError then return end
+  local ok, err = pcall(function()
+    Relative.clampSettings(settings)
+    updateTelemetry(dt)
+  end)
+  if not ok then
+    telemetryError = tostring(err)
+    ac.error('[MulticlassRelative] update error: ' .. telemetryError)
+  end
 end
 
-function script.windowMain(dt)
-  Relative.clampSettings(settings)
-  updateTelemetry(dt)
-  if not player then ui.text('Waiting for race telemetry…'); return end
-  ui.drawRectFilled(vec2(), ui.windowSize(), rgbm(settings.backgroundColor.r, settings.backgroundColor.g, settings.backgroundColor.b, settings.backgroundOpacity))
-  if settings.showTitle then ui.dwriteText('RELATIVE', math.ceil(settings.fontSize * 1.15)) end
-  if settings.showHeader then
-    ui.setCursorX(classMarkerWidth() + 4)
-    ui.dwriteText(Display.headerText(settings), settings.fontSize, rgb(0.72, 0.75, 0.80))
-    ui.setCursorX(0)
-  end
-  for _, row in ipairs(shownAhead) do drawRow(row, false) end
-  drawRow(player, true)
-  for _, row in ipairs(shownBehind) do drawRow(row, false) end
-  if settings.debug then
-    ui.separator()
-    ui.text(string.format('Debug: %d active · player L%d %.3f · %s', #cars, player.lap, player.spline, player.classSource))
-    for _, row in ipairs(shownAhead) do ui.text(string.format('#%d raw=%s progress=%.3f', row.index, tostring(row.rawGap), row.progress)) end
+function script.windowMain(_)
+  local ok, err = pcall(drawMain)
+  if not ok then
+    local message = tostring(err)
+    ac.error('[MulticlassRelative] draw error: ' .. message)
+    ui.text('MULTICLASS RELATIVE')
+    ui.text('DRAW ERROR')
+    ui.text(message)
   end
 end
 
@@ -201,9 +293,9 @@ function script.windowSettings()
   ui.separator(); ui.text('Click a detected class to cycle a persistent override:')
   local choices = { 'UNKNOWN', 'HY', 'LMP1', 'LMP2', 'LMP3', 'GT3', 'GT4', 'GTE', 'TCR', 'TC', 'CUP' }
   for _, row in ipairs(cars) do
-    if ui.button(shorten(row.carID, 27) .. ' → ' .. row.classID .. '##class' .. row.index) then
+    if ui.button(shorten(row.carID, 27) .. ' -> ' .. row.classID .. '##class' .. row.index) then
       local n = 1
-      for i, v in ipairs(choices) do if v == row.classID then n = i % #choices + 1 end end
+      for i, value in ipairs(choices) do if value == row.classID then n = i % #choices + 1 end end
       Classes.setOverride(row.carID, choices[n]); metadata[row.index] = nil
     end
   end
