@@ -1,6 +1,9 @@
 local Timing = require('src/timing')
 local Relative = require('src/relative')
 local Classes = require('src/classes')
+local Theme = require('src/theme')
+
+local HUD_THEME_EVENT = 'retro-engineering-hud/theme/v1'
 
 local settings = ac.storage({
   ahead = 3, behind = 3, mode = 0, showOverall = true, showClassPosition = false,
@@ -30,6 +33,47 @@ if (settings.visualStyleVersion or 0) < 1 then
     settings.backgroundColor = rgb(0.043, 0.035, 0.027)
   end
   settings.visualStyleVersion = 1
+end
+
+local hudTheme = {}
+
+local function clampUnit(value, fallback)
+  value = tonumber(value)
+  if not value then return fallback end
+  return math.max(0, math.min(1, value))
+end
+
+local function receiveHudTheme(data)
+  if type(data) ~= 'string' then return end
+  local name, backdrop, instrument = data:match('^([^|]+)|([^|]+)|([^|]+)$')
+  if name ~= 'light' and name ~= 'dark' then return end
+  hudTheme.name = name
+  hudTheme.backdropOpacity = clampUnit(backdrop, 0.78)
+  hudTheme.instrumentOpacity = clampUnit(instrument, 1)
+  hudTheme.lastReceived = ui.time()
+end
+
+-- The companion HUD republishes this compact event periodically. If it is
+-- absent, no shared state is assumed and the relative falls back to black.
+pcall(function()
+  ac.onSharedEvent(HUD_THEME_EVENT, receiveHudTheme, true)
+end)
+
+local function visualStyle()
+  local hudIsActive = hudTheme.lastReceived and ui.time() - hudTheme.lastReceived <= 2.5
+  if not hudIsActive then
+    return {
+      palette = Theme.get('dark'),
+      backdropOpacity = 0.78,
+      instrumentOpacity = 1
+    }
+  end
+
+  return {
+    palette = Theme.get(hudTheme.name),
+    backdropOpacity = hudTheme.backdropOpacity or 0.78,
+    instrumentOpacity = hudTheme.instrumentOpacity or 1
+  }
 end
 
 local timing = Timing.new()
@@ -89,57 +133,61 @@ local function headerText()
   return ' ' .. table.concat(parts, ' ')
 end
 
-local function drawRow(row, isPlayer)
+local function drawRow(row, isPlayer, visual)
   local color = classColor(row.classID)
+  local palette = visual.palette
+  local opacity = visual.instrumentOpacity
   local height = math.max(22, math.floor(settings.fontSize * 1.45))
   local markerWidth = math.max(2, math.floor(settings.classMarkerWidth + 0.5))
   local start = vec2(8, ui.getCursorY())
   local finish = vec2(ui.windowWidth() - 8, start.y + height)
 
-  ui.drawRectFilled(start, finish, rgbm(0.05, 0.04, 0.03, 0.92))
+  ui.drawRectFilled(start, finish, Theme.withAlpha(palette.panel, 0.92 * opacity))
   if isPlayer then
-    ui.drawRectFilled(start, finish, rgbm(0.36, 0.24, 0.08, 0.78))
+    ui.drawRectFilled(start, finish, Theme.withAlpha(palette.amberDim, 0.78 * opacity))
   elseif row.approaching then
-    ui.drawRectFilled(start, finish, rgbm(settings.approachColor.r, settings.approachColor.g, settings.approachColor.b, 0.34))
+    ui.drawRectFilled(start, finish, Theme.fromRgb(settings.approachColor, 0.34 * opacity))
   elseif row.filteredGap and math.abs(row.filteredGap) < 0.5 then
-    ui.drawRectFilled(start, finish, rgbm(color.r, color.g, color.b, 0.16))
+    ui.drawRectFilled(start, finish, Theme.fromRgb(color, 0.16 * opacity))
   end
 
-  ui.drawRectFilled(start, vec2(start.x + markerWidth, finish.y), rgbm(color.r, color.g, color.b, 0.95))
+  ui.drawRectFilled(start, vec2(start.x + markerWidth, finish.y), Theme.fromRgb(color, 0.95 * opacity))
   ui.setCursorX(start.x + markerWidth + 7)
   ui.setCursorY(start.y + math.max(1, (height - settings.fontSize) / 2))
-  ui.dwriteText(rowText(row, isPlayer), settings.fontSize, isPlayer and rgb(1, 0.91, 0.70) or rgb(0.95, 0.86, 0.67))
+  ui.dwriteText(rowText(row, isPlayer), settings.fontSize, Theme.withAlpha(palette.primary, opacity))
   ui.setCursorX(8)
   ui.setCursorY(finish.y + 2)
 end
 
 local function drawMain()
-  local background = settings.backgroundColor or rgb(0.043, 0.035, 0.027)
-  ui.drawRectFilled(vec2(), ui.windowSize(), rgbm(background.r, background.g, background.b, settings.backgroundOpacity or 0.72))
+  local visual = visualStyle()
+  local palette = visual.palette
+  local opacity = visual.instrumentOpacity
+  ui.drawRectFilled(vec2(), ui.windowSize(), Theme.withAlpha(palette.void, visual.backdropOpacity * opacity))
 
   ui.setCursorX(8)
   ui.setCursorY(18)
   if telemetryError then
-    ui.dwriteText('TELEMETRY ERROR', settings.fontSize, rgb(1, 0.35, 0.28))
+    ui.dwriteText('TELEMETRY ERROR', settings.fontSize, Theme.withAlpha(palette.red, opacity))
     ui.text(telemetryError)
     return
   end
 
   if not player then
-    ui.dwriteText('WAITING FOR TELEMETRY', settings.fontSize, rgb(1, 0.87, 0.60))
+    ui.dwriteText('WAITING FOR TELEMETRY', settings.fontSize, Theme.withAlpha(palette.primary, opacity))
     ui.text('Race data is not available yet.')
     return
   end
 
   if settings.showHeader then
     ui.setCursorX(8)
-    ui.dwriteText(headerText(), settings.fontSize, rgb(0.65, 0.51, 0.32))
+    ui.dwriteText(headerText(), settings.fontSize, Theme.withAlpha(palette.secondary, opacity))
   end
   ui.setCursorX(8)
   ui.setCursorY(math.max(40, ui.getCursorY() + 4))
-  for _, row in ipairs(shownAhead) do drawRow(row, false) end
-  drawRow(player, true)
-  for _, row in ipairs(shownBehind) do drawRow(row, false) end
+  for _, row in ipairs(shownAhead) do drawRow(row, false, visual) end
+  drawRow(player, true, visual)
+  for _, row in ipairs(shownBehind) do drawRow(row, false, visual) end
 end
 
 local function updateApproachAlerts(now, dt)
@@ -275,8 +323,8 @@ function script.windowSettings()
   ui.separator(); ui.header('Appearance')
   settings.fontSize = ui.slider('Relative font size', settings.fontSize, 12, 32, 'Relative font size: %.0f px')
   settings.classMarkerWidth = ui.slider('Class marker width', settings.classMarkerWidth, 2, 8, 'Class marker width: %.0f px')
-  ui.text('Background color'); ui.sameLine(); ui.colorButton('##background', settings.backgroundColor, ui.ColorPickerFlags.PickerHueBar)
-  settings.backgroundOpacity = ui.slider('Background opacity', settings.backgroundOpacity, 0, 1, 'Background opacity: %.0f%%')
+  ui.text('Theme and translucency follow Retro Engineering HUD when it is running.')
+  ui.text('Fallback: black theme when the HUD is unavailable.')
   ui.text('Approach warning color'); ui.sameLine(); ui.colorButton('##approach', settings.approachColor, ui.ColorPickerFlags.PickerHueBar)
   ui.separator(); ui.header('Faster-class approach warning')
   if ui.checkbox('Highlight faster class closing quickly', settings.showApproaching) then settings.showApproaching = not settings.showApproaching end

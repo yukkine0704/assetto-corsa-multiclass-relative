@@ -15,6 +15,7 @@ It is designed for endurance traffic: the rows nearest the player are selected b
 - Persistent CSP settings and in-app per-car class override cycling.
 - Persistent per-class colour pickers, a configurable class-colour stripe, custom background colour/opacity, and a `FAST` closing-traffic highlight.
 - Retro-engineering visual language: warm instrument palette, amber-on-graphite rows, and compact timing columns.
+- When Retro Engineering HUD is running, its selected light/dark theme and opacity settings are mirrored automatically; without it, the app uses a translucent black fallback.
 - Editable exact class map in `classes.ini`; safe `UNKNOWN` fallback.
 - Optional compact debug telemetry view.
 
