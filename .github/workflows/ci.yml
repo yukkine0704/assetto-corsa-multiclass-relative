@@ -2,11 +2,20 @@ name: CI
 
 on:
   push:
+    branches:
+      - '**'
+    tags:
+      - 'v*.*.*'
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   lua:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: leafo/gh-actions-lua@v11
@@ -20,12 +29,38 @@ jobs:
           lua tests/display_spec.lua
       - name: Verify package source
         run: test -f apps/lua/MulticlassRelative/manifest.ini
+      - name: Read package version
+        id: metadata
+        shell: bash
+        run: echo "version=$(sed -n 's/^VERSION = //p' apps/lua/MulticlassRelative/manifest.ini)" >> "$GITHUB_OUTPUT"
       - name: Build Content Manager package
         shell: pwsh
-        run: ./tools/build-package.ps1
+        run: ./tools/build-package.ps1 -Version '${{ steps.metadata.outputs.version }}'
       - name: Upload installable package
         uses: actions/upload-artifact@v4
         with:
-          name: MulticlassRelative-v0.1.4
-          path: dist/MulticlassRelative-v0.1.4.zip
+          name: MulticlassRelative-v${{ steps.metadata.outputs.version }}
+          path: dist/MulticlassRelative-v${{ steps.metadata.outputs.version }}.zip
           if-no-files-found: error
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: lua
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Validate tag version
+        shell: bash
+        run: test "${GITHUB_REF_NAME#v}" = "${{ needs.lua.outputs.version }}"
+      - name: Download installable package
+        uses: actions/download-artifact@v4
+        with:
+          name: MulticlassRelative-v${{ needs.lua.outputs.version }}
+          path: dist
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: dist/MulticlassRelative-v${{ needs.lua.outputs.version }}.zip

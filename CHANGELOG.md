@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.5] - 2026-09-06
+
+### Added
+
+- Distinct red and teal row backgrounds for lap-separated traffic: cars lapping the player and cars being lapped.
+- GitHub Release automation that publishes the installable ZIP when a version tag is pushed.
+
+### Changed
+
+- Lap-separated traffic highlighting follows the shared Retro Engineering HUD visual language while preserving class-colour markers.
+
 ## [0.1.4-rc.1] - 2026-08-24
 
 ### Added

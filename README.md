@@ -45,7 +45,7 @@ The player row also has a bright background and `>` marker, so its identity does
 
 ## Installation
 
-1. Download `MulticlassRelative-v0.1.4.zip` from the release assets.
+1. Download `MulticlassRelative-v0.1.5.zip` from the release assets.
 2. Drag the ZIP into Content Manager and accept installation.
 3. Enable **Multiclass Relative** in the in-game CSP app sidebar.
 4. Open its settings through the app’s gear icon.
