@@ -53,9 +53,20 @@ function Relative.pruneMemory(memory, now)
 end
 
 function Relative.lapText(row, player)
-  local laps = math.floor(row.progress) - math.floor(player.progress)
+  local laps = Relative.lapDelta(row, player)
   if laps == 0 then return nil end
   return (laps > 0 and '-' or '+') .. math.abs(laps) .. 'L'
+end
+
+function Relative.lapDelta(row, player)
+  return math.floor(row.progress) - math.floor(player.progress)
+end
+
+function Relative.lapState(row, player)
+  local laps = Relative.lapDelta(row, player)
+  if laps > 0 then return 'lapping_player' end
+  if laps < 0 then return 'being_lapped' end
+  return nil
 end
 
 function Relative.clampSettings(settings)

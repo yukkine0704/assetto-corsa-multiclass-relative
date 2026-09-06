@@ -14,6 +14,7 @@ It is designed for endurance traffic: the rows nearest the player are selected b
 - All-cars and same-class modes; offline/online-aware inactive/disconnected car filtering.
 - Persistent CSP settings and in-app per-car class override cycling.
 - Persistent per-class colour pickers, a configurable class-colour stripe, custom background colour/opacity, and a `FAST` closing-traffic highlight.
+- Lap-separated traffic gets a distinct red background when a car is lapping the player and a teal background when the player is lapping that car.
 - Retro-engineering visual language: warm instrument palette, amber-on-graphite rows, and compact timing columns.
 - When Retro Engineering HUD is running, its selected light/dark theme and opacity settings are mirrored automatically; without it, the app uses a translucent black fallback.
 - Editable exact class map in `classes.ini`; safe `UNKNOWN` fallback.
@@ -97,6 +98,8 @@ The **Appearance** section includes a persistent 12–32 px **Relative font size
 Every 0.1 s, each active car gets monotonic race progress `lapCount + splinePosition`. The app uses the **shortest circular delta of `splinePosition`** to decide if a car is physically ahead or behind; it never uses `racePosition` or total race progress for that decision. This distinction is crucial for lapping: a car one lap ahead but physically approaching from behind is shown below the player.
 
 For a car ahead, it interpolates the time at which that car crossed the player’s current progress. For a car behind, it interpolates when the player crossed the trailing car’s current progress. Those crossings produce a time delta at the same point on the track, which remains useful through different speeds and classes. The short initial-history fallback uses average player progress rate and is replaced as soon as a crossing exists. A 0.40 s exponential filter smooths displayed gaps without changing row order.
+
+Lap-separated rows are highlighted independently of class colour: red means the other car has completed more laps and is lapping the player; teal means it has completed fewer laps and is being lapped. The existing `-1L`/`+1L` marker remains available as the precise lap difference.
 
 Start/finish is continuous because laps participate in progress. A large backwards movement on the same lap is treated as a teleport/pit reset and clears only that car’s stale history. Pit-lane spline behavior remains track-dependent, a CSP/track limitation rather than a guessed correction.
 

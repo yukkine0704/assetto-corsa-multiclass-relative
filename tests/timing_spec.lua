@@ -50,6 +50,9 @@ local lappingCar = { index = 1, progress = 11.45, spline = 0.45 }
 local _, physicalBehind = Relative.build({ player, lappingCar }, player, fakeTiming, 3, settings, 1, {})
 assert(physicalBehind[1].index == 1, 'lapping car physically behind must appear below player')
 assert(Relative.circularSplineDelta(0.95, 0.05) > 0, 'spline wrap must preserve physical ahead direction')
+assert(Relative.lapState(lappingCar, player) == 'lapping_player', 'a car one lap ahead must be marked as lapping the player')
+assert(Relative.lapState({ progress = 9.50 }, player) == 'being_lapped', 'a car one lap behind must be marked as being lapped')
+assert(Relative.lapState({ progress = 10.90 }, player) == nil, 'same-lap traffic must not receive a lap highlight')
 
 -- Class filtering remains active independently of presentation columns.
 settings.mode = 1

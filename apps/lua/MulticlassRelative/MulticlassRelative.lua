@@ -141,10 +141,15 @@ local function drawRow(row, isPlayer, visual)
   local markerWidth = math.max(2, math.floor(settings.classMarkerWidth + 0.5))
   local start = vec2(8, ui.getCursorY())
   local finish = vec2(ui.windowWidth() - 8, start.y + height)
+  local lapState = Relative.lapState(row, player)
 
   ui.drawRectFilled(start, finish, Theme.withAlpha(palette.panel, 0.92 * opacity))
   if isPlayer then
     ui.drawRectFilled(start, finish, Theme.withAlpha(palette.amberDim, 0.78 * opacity))
+  elseif lapState == 'lapping_player' then
+    ui.drawRectFilled(start, finish, Theme.fromRgb(palette.lapper, 0.28 * opacity))
+  elseif lapState == 'being_lapped' then
+    ui.drawRectFilled(start, finish, Theme.fromRgb(palette.lapped, 0.24 * opacity))
   elseif row.approaching then
     ui.drawRectFilled(start, finish, Theme.fromRgb(settings.approachColor, 0.34 * opacity))
   elseif row.filteredGap and math.abs(row.filteredGap) < 0.5 then
@@ -325,6 +330,7 @@ function script.windowSettings()
   settings.classMarkerWidth = ui.slider('Class marker width', settings.classMarkerWidth, 2, 8, 'Class marker width: %.0f px')
   ui.text('Theme and translucency follow Retro Engineering HUD when it is running.')
   ui.text('Fallback: black theme when the HUD is unavailable.')
+  ui.text('Red = car lapping you; teal = car you are lapping.')
   ui.text('Approach warning color'); ui.sameLine(); ui.colorButton('##approach', settings.approachColor, ui.ColorPickerFlags.PickerHueBar)
   ui.separator(); ui.header('Faster-class approach warning')
   if ui.checkbox('Highlight faster class closing quickly', settings.showApproaching) then settings.showApproaching = not settings.showApproaching end
